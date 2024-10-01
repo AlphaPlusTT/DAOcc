@@ -1,5 +1,7 @@
 # DAOcc
 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/daocc-3d-object-detection-assisted-multi/prediction-of-occupancy-grid-maps-on-occ3d)](https://paperswithcode.com/sota/prediction-of-occupancy-grid-maps-on-occ3d?p=daocc-3d-object-detection-assisted-multi)
+
 > **DAOcc: 3D Object Detection Assisted Multi-Sensor Fusion for 3D Occupancy Prediction 
 > [[`arxiv`](https://arxiv.org/abs/2409.19972)]**
 > <br> Zhen Yang
