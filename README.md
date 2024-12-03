@@ -4,7 +4,7 @@
 
 > **DAOcc: 3D Object Detection Assisted Multi-Sensor Fusion for 3D Occupancy Prediction 
 > [[`arxiv`](https://arxiv.org/abs/2409.19972)]**
-> <br> Zhen Yang, Heng Wang
+> <br> Zhen Yang, Heng Wang, Yanpeng Dong
 > <br> Beijing Mechanical Equipment Institute, Beijing, China
 
 This is the official implementation of DAOcc. DAOcc is a novel multi-modal occupancy prediction framework that leverages 3D object detection to assist in achieving superior performance while using a deployment-friendly image encoder and practical input image resolution.
