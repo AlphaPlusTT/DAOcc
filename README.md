@@ -29,7 +29,6 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 |:------:|:-----------------:|:--------------------:|:----------------------:|:------:|:----------:|:--------------:|:------------:|
 | DAOcc  |         ×         |         R50          |        256×704         |  48.2  | [config](configs/nuscenes/occ3d/daocc_occ3d_wo_mask.yaml) | [model](https://drive.google.com/file/d/12naKlrec09QEF-7mGtAyW07au1WjYeKI/view?usp=sharing) | [log](https://drive.google.com/file/d/1XK3O4RLYxT_33kmVuWGu4Pt9Wj9X72AA/view?usp=sharing) |
 
-**Notes**
 - \* means use exponential moving average (EMA) hook.
 
 ### 3D Semantic Occupancy Prediction on [SurroundOcc](https://github.com/weiyithu/SurroundOcc)
