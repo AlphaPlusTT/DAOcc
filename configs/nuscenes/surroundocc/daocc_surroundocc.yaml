@@ -1,0 +1,221 @@
+voxel_size: [0.075, 0.075, 0.2]
+point_cloud_range: [-54.0, -54.0, -5.0, 54.0, 54.0, 3.0]
+occ_data_type: surround_occ
+
+augment3d:
+  scale: [1., 1.]
+  rotate: [-0., 0.]
+  translate: 0.
+
+augment2d:
+  resize: [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+  rotate: [-0.0, 0.0]
+  gridmask:
+    prob: 0.0
+    fixed_prob: true
+
+model:
+  type: BEVFusion
+  encoders:
+    lidar:
+      voxelize:
+        max_num_points: 10
+        point_cloud_range: ${point_cloud_range}
+        voxel_size: ${voxel_size}
+        max_voxels: [ 120000, 160000 ]
+      backbone:
+        type: SparseEncoder
+        in_channels: 5
+        sparse_shape: [ 1440, 1440, 41 ]
+        output_channels: 128
+        order:
+          - conv
+          - norm
+          - act
+        encoder_channels:
+          - [ 16, 16, 32 ]
+          - [ 32, 32, 64 ]
+          - [ 64, 64, 128 ]
+          - [ 128, 128 ]
+        encoder_paddings:
+          - [ 0, 0, 1 ]
+          - [ 0, 0, 1 ]
+          - [ 0, 0, [ 1, 1, 0 ] ]
+          - [ 0, 0 ]
+        block_type: basicblock
+    camera:
+      backbone:
+        type: ResNet
+        depth: 50
+        out_indices: [1, 2, 3]
+        # with_cp: true
+        init_cfg:
+          type: Pretrained
+          checkpoint: https://download.pytorch.org/models/resnet50-0676ba61.pth
+      neck:
+        type: GeneralizedLSSFPN
+        in_channels: [512, 1024, 2048]
+        out_channels: 256
+        start_level: 0
+        num_outs: 3
+        norm_cfg:
+          type: BN2d
+          requires_grad: true
+        act_cfg:
+          type: ReLU
+          inplace: true
+        upsample_cfg:
+          mode: bilinear
+          align_corners: false
+      vtransform:
+        type: BEVTransform
+        top_type: lidar
+        x: [-54.0, 54.0]
+        y: [-54.0, 54.0]
+        z: [-5.0, 3.0]
+        xs: 180
+        ys: 180
+        zs: 10
+        input_size: [256, 704]
+        in_channels: 256
+        out_channels: 128
+  fuser:
+    type: ConvFuser
+    in_channels: [1280, 256]
+    out_channels: 512
+  decoder:
+    backbone:
+      type: CustomResNet
+      stride: [1, 1, 2]
+      numC_input : 512
+      num_channels: [128, 256, 512]
+    neck:
+      type: FPN_LSS
+      in_channels: 640
+      out_channels: 512
+      scale_factor: 2
+      extra_upsample: null
+  heads:
+    map: null
+    object:
+      type: CenterHead
+      in_channels: 512
+      train_cfg:
+        point_cloud_range: ${point_cloud_range}
+        grid_size: [ 1440, 1440, 41 ]
+        voxel_size: ${voxel_size}
+        out_size_factor: 8
+        dense_reg: 1
+        gaussian_overlap: 0.1
+        max_objs: 500
+        min_radius: 2
+        code_weights: [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2 ]
+      test_cfg:
+        post_center_limit_range: [ -61.2, -61.2, -10.0, 61.2, 61.2, 10.0 ]
+        max_per_img: 500
+        max_pool_nms: false
+        min_radius: [ 4, 12, 10, 1, 0.85, 0.175 ]
+        score_threshold: 0.1
+        out_size_factor: 8
+        voxel_size: ${voxel_size[:2]}
+        nms_type:
+          - circle
+          - rotate
+          - rotate
+          - circle
+          - rotate
+          - rotate
+        nms_scale:
+          - [ 1.0 ]
+          - [ 1.0, 1.0 ]
+          - [ 1.0, 1.0 ]
+          - [ 1.0 ]
+          - [ 1.0, 1.0 ]
+          - [ 2.5, 4.0 ]
+        pre_max_size: 1000
+        post_max_size: 83
+        nms_thr: 0.2
+      tasks:
+        - [ "car" ]
+        - [ "truck", "construction_vehicle" ]
+        - [ "bus", "trailer" ]
+        - [ "barrier" ]
+        - [ "motorcycle", "bicycle" ]
+        - [ "pedestrian", "traffic_cone" ]
+      common_heads:
+        reg: [ 2, 2 ]
+        height: [ 1, 2 ]
+        dim: [ 3, 2 ]
+        rot: [ 2, 2 ]
+        vel: [ 2, 2 ]
+      share_conv_channel: 64
+      bbox_coder:
+        type: CenterPointBBoxCoder
+        pc_range: ${point_cloud_range}
+        post_center_range: [ -61.2, -61.2, -10.0, 61.2, 61.2, 10.0 ]
+        max_num: 500
+        score_threshold: 0.1
+        out_size_factor: 8
+        voxel_size: ${voxel_size[:2]}
+        code_size: 9
+      separate_head:
+        type: SeparateHead
+        init_bias: -2.19
+        final_kernel: 3
+      loss_cls:
+        type: GaussianFocalLoss
+        reduction: mean
+      loss_bbox:
+        type: L1Loss
+        reduction: mean
+        loss_weight: 0.25
+      norm_bbox: true
+    occ:
+      type: BEVOCCHead2D
+      in_dim: 128
+      out_dim: 128
+      Dz: 16
+      use_mask: false
+      num_classes: 17
+      use_predicter: true
+      class_balance: false
+      loss_occ:
+        type: CrossEntropyLoss
+        use_sigmoid: false
+        ignore_index: 255
+        loss_weight: 1.0
+        drop_free: true
+        free_label: 0
+      coordinate_transform:
+        type: CrossCoordinateSample
+        point_range: [-50., 50., -50., 50., 0., 0.]
+        point_num: [200, 200, 1]
+        point_type: lidar
+        lidar_point_range: [-54.0, 54.0, -54.0, 54.0]
+        in_dim: 512
+        out_dim: 128
+  loss_scale:
+    object: 0.01
+    occ: 1.0
+
+optimizer:
+  type: AdamW
+  lr: 2.0e-4
+  weight_decay: 0.01
+
+optimizer_config:
+  grad_clip:
+    max_norm: 35
+    norm_type: 2
+
+lr_config:
+  policy: CosineAnnealing
+  warmup: linear
+  warmup_iters: 500
+  warmup_ratio: 0.33333333
+  min_lr_ratio: 1.0e-3
+
+max_epochs: 6
+
+evaluation:
+  interval: 2

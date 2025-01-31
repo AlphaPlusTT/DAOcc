@@ -1,0 +1,35 @@
+seed: 0
+deterministic: false
+max_keep_ckpt: 1
+
+checkpoint_config:
+  interval: 1
+  max_keep_ckpts: ${max_keep_ckpt}
+
+log_config:
+  interval: 50
+  hooks:
+    -
+      type: TextLoggerHook
+    -
+      type: TensorboardLoggerHook
+
+load_from: null
+resume_from: null
+
+cudnn_benchmark: false
+fp16:
+  loss_scale: 
+    growth_interval: 2000
+
+max_epochs: 20
+runner:
+  type: CustomEpochBasedRunner
+  max_epochs: ${max_epochs}
+
+custom_hooks:
+  type: MEGVIIEMAHook
+  init_updates: 10560
+  priority: NORMAL
+  max_keep_ckpt: ${max_keep_ckpt}
+
