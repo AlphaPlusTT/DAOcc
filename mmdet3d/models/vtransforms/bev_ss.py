@@ -218,3 +218,224 @@ class BEVTransform(BaseModule):
         volume_mask = volume_mask.permute(1, 0, 2, 3)
 
         return reference_points_img, volume_mask
+
+
+@VTRANSFORMS.register_module()
+class BEVTransformV2(BaseModule):
+    """
+    Follow SparseBEV and optimize the bilinear interpolation sampling process.
+    """
+    def __init__(
+            self,
+            x: List[float], y: List[float], z: List[float],
+            xs: int, ys: int, zs: int,
+            input_size: List[int],
+            in_channels: int = 256,
+            out_channels: int = 128,
+            top_type: str = 'lidar',
+            down_sample: bool = False,
+            down_sample_scale: int = 2,
+            down_sample_channels: List[int] = [128*10, 64*10, 32*10, 16*10]
+    ):
+        """
+        Args:
+            x, y, z: Range in three directions.
+            xs, ys, zs: Resolution in three directions.
+            input_size (tuple(int)): Size of input images in format of (height, width).
+            in_channels (int): Channels of input feature.
+            out_channels (int): Channels of transformed feature.
+            top_type (str): Coordinate system in which the task is labeled, 'lidar' or 'ego',
+                        eg: 'lidar' for 3D detection and 'ego' for Occ3D-nuScenes.
+        """
+        super(BEVTransformV2, self).__init__()
+        self.pc_range = [x[0], y[0], z[0], x[1], y[1], z[1]]
+        self.volume_size = [int(s) for s in [xs, ys, zs]]
+        ref_3d = get_reference_points(self.pc_range[0], self.pc_range[3],
+                                      self.pc_range[1], self.pc_range[4],
+                                      self.pc_range[2], self.pc_range[5],
+                                      self.volume_size[0], self.volume_size[1], self.volume_size[2])
+        self.register_buffer('ref_3d', ref_3d)
+        if in_channels != out_channels:
+            self.transfer_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
+        else:
+            self.transfer_conv = None
+        self.out_channels = out_channels
+        self.initial_flag = True
+        self.input_size = input_size
+        self.top_type = top_type
+        if down_sample:
+            assert down_sample_scale in [1, 2], 'only support 1x or 2x downsampling!'
+            if down_sample_scale == 2:
+                self.down_sample = nn.Sequential(
+                    nn.Conv2d(down_sample_channels[0], down_sample_channels[1], 3, padding=1, bias=False),
+                    nn.BatchNorm2d(down_sample_channels[1]),
+                    nn.ReLU(True),
+                    nn.Conv2d(
+                        down_sample_channels[1],
+                        down_sample_channels[2],
+                        3,
+                        stride=down_sample_scale,
+                        padding=1,
+                        bias=False,
+                    ),
+                    nn.BatchNorm2d(down_sample_channels[2]),
+                    nn.ReLU(True),
+                    nn.Conv2d(down_sample_channels[2], down_sample_channels[3], 3, padding=1, bias=False),
+                    nn.BatchNorm2d(down_sample_channels[3]),
+                    nn.ReLU(True),
+                )
+            else:  # down_sample_scale == 1
+                assert len(down_sample_channels) == 2, "the len of 'down_sample_channels: List[int]' should be 2!"
+                self.down_sample = nn.Sequential(
+                    nn.Conv2d(down_sample_channels[0], down_sample_channels[1], 3, padding=1, bias=False),
+                    nn.BatchNorm2d(down_sample_channels[1]),
+                    nn.ReLU(True)
+                )
+        else:
+            self.down_sample = None
+        self.fp16_enabled = False  # TODO: important!!! # will be automatically set as true
+
+    # @auto_fp16(apply_to=("x", "points"))
+    @force_fp32()
+    def forward(self,
+                x,
+                points,
+                camera2ego,
+                lidar2ego,
+                lidar2camera,
+                lidar2image,
+                camera_intrinsics,
+                camera2lidar,
+                img_aug_matrix,
+                lidar_aug_matrix,
+                metas,
+                **kwargs,
+                ):
+        """Transform image-view feature into bird-eye-view feature.
+
+        Args:
+        Returns:
+        """
+        B = x.shape[0]
+        if self.transfer_conv is not None:
+            x = einops.rearrange(x, 'B N C H W -> (B N) C H W')
+            x = self.transfer_conv(x)
+            x = einops.rearrange(x, '(B N) C H W -> B C N H W', B=B)
+        else:
+            x = einops.rearrange(x, 'B N C H W -> B C N H W')
+
+        if self.top_type == 'ego':
+            assert 'camera_ego2global' in kwargs
+            camera_ego2global = kwargs['camera_ego2global']
+            keyego2global = camera_ego2global[:, 0, ...].unsqueeze(1)  # (B, 1, 4, 4)
+            global2keyego = torch.inverse(keyego2global.double())  # (B, 1, 4, 4)
+            camera2sensor = global2keyego @ camera_ego2global.double() @ camera2ego.double()  # (B, N_views, 4, 4)
+            camera2sensor = camera2sensor.float()
+        elif self.top_type == 'lidar':
+            camera2sensor = camera2lidar
+        else:
+            raise NotImplementedError
+        # camera2lidar, cam2imgs, post_rots, post_trans, bda
+        reference_points_img, volume_mask = self.point_sampling(camera2sensor, camera_intrinsics[..., :3, :3],
+                                                                img_aug_matrix[..., :3, :3], img_aug_matrix[..., :3, 3],
+                                                                lidar_aug_matrix)
+
+        bs, num_points, _ = reference_points_img.shape  # num_points: 324000
+        valid_index_per_batch = [volume_mask[i].squeeze(-1).nonzero().squeeze(-1) for i in range(bs)]  # [torch.Size([312387])]
+        max_len = max([len(per_batch) for per_batch in valid_index_per_batch])
+
+        reference_points_rebatch = reference_points_img.new_zeros([bs, max_len, 3])
+        for j in range(bs):
+            reference_points_rebatch[j, :len(valid_index_per_batch[j])] = reference_points_img[j, valid_index_per_batch[j]]
+        reference_points_rebatch = reference_points_rebatch.view(bs, max_len, 1, 1, 3)
+        reference_points_rebatch = 2 * reference_points_rebatch - 1  # torch.Size([1, 312387, 1, 1, 3])
+
+        # x: b, c, n, h, w
+        # reference_points_rebatch: b, max_len, 1, 1, xyz
+        sampling_feats = F.grid_sample(
+            x,
+            reference_points_rebatch,
+            mode='bilinear',
+            padding_mode='zeros',
+            align_corners=True)
+        # bn, c, max_len, num_points_in_voxel
+        sampling_feats = einops.rearrange(sampling_feats,
+                                          'b c max_len 1 1 -> b max_len c',
+                                          b=bs)
+        feats_volume = x.new_zeros([bs, num_points, self.out_channels])
+        for j in range(bs):
+            feats_volume[j, valid_index_per_batch[j]] = sampling_feats[j, :len(valid_index_per_batch[j])]
+
+        feats_volume = einops.rearrange(feats_volume,
+                                        'bs (z h w) c -> bs (z c) w h',
+                                        z=self.volume_size[2], h=self.volume_size[0], w=self.volume_size[1])
+        if self.down_sample is not None:
+            feats_volume = self.down_sample(feats_volume)
+        return feats_volume
+
+    @force_fp32()
+    def point_sampling(self, camera2sensor, cam2imgs, post_rots, post_trans, bda, mode='fix'):
+        B, N, _, _ = camera2sensor.shape
+        num_points = self.ref_3d.shape[0]
+
+        # [(NP 3) -> (1 NP 3)] - [(B 3) -> (B 1 3)] -> (B NP 3)
+        reference_points = self.ref_3d.view(1, num_points, 3) - bda[:, :3, 3].view(B, 1, 3)
+        # [(B 3 3) -> (B 1 3 3)] @ [(B NP 3) -> (B NP 3 1)] -> (B NP 3 1)
+        reference_points = torch.inverse(bda[:, :3, :3].view(B, 1, 3, 3)).matmul(reference_points.unsqueeze(-1))
+        # (B NP 3 1) -> (B 1 NP 3 1) -> (B 1 NP 3)
+        reference_points = reference_points.view(B, 1, num_points, 3, 1).squeeze(-1)
+        # (B 1 NP 3) - (B N 1 3) -> (B N NP 3) -> (B N NP 3 1)
+        reference_points = (reference_points - camera2sensor[:, :, :3, 3].view(B, N, 1, 3)).unsqueeze(-1)
+        # (B N 3 3)
+        combine = cam2imgs.matmul(camera2sensor[:, :, :3, :3].transpose(-1, -2))
+        # [(B N 3 3) -> (B N 1 3 3)] @ (B N NP 3 1) -> (B N NP 3 1) -> (B N NP 3)
+        reference_points_img = combine.view(B, N, 1, 3, 3).matmul(reference_points).squeeze(-1)
+
+        eps = 1e-5
+        # (B N NP 1)
+        volume_mask = (reference_points_img[..., 2:3] > eps)
+        # (B N NP 2)
+        reference_points_img = reference_points_img[..., 0:2] / torch.maximum(
+            reference_points_img[..., 2:3], torch.ones_like(reference_points_img[..., 2:3]) * eps)
+
+        # do post-transformation
+        post_rots2 = post_rots[:, :, :2, :2]
+        post_trans2 = post_trans[:, :, :2]
+        # [(B N 2 2) -> (B N 1 2 2)] @ [(B N NP 2) -> (B N NP 2 1)] -> (B N NP 2 1)
+        reference_points_img = post_rots2.view(B, N, 1, 2, 2).matmul(reference_points_img.unsqueeze(-1))
+        # [(B N NP 2 1) -> (B N NP 2)] + [(B N 2) -> (B N 1 2)] -> (B N NP 2)
+        reference_points_img = reference_points_img.squeeze(-1) + post_trans2.view(B, N, 1, 2)
+
+        H_in, W_in = self.input_size
+        reference_points_img[..., 0] /= W_in  # 1600 w
+        reference_points_img[..., 1] /= H_in  # 928 h
+
+        volume_mask = (volume_mask & (reference_points_img[..., 1:2] > 0.0)
+                       & (reference_points_img[..., 1:2] < 1.0)
+                       & (reference_points_img[..., 0:1] < 1.0)
+                       & (reference_points_img[..., 0:1] > 0.0))
+
+        volume_mask = torch.nan_to_num(volume_mask)
+
+        # (B N NP 2) -> (B NP N 2)
+        reference_points_img = reference_points_img.permute(0, 2, 1, 3)
+        # (B N NP 1) -> (B NP N 1)
+        volume_mask = volume_mask.permute(0, 2, 1, 3)
+        if mode == 'fix':
+            idx_camera = torch.argmax(volume_mask.squeeze(-1).float(), dim=-1)
+        elif mode == 'random':
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+        idx_batch = torch.arange(B, dtype=torch.long, device=reference_points_img.device)
+        idx_point = torch.arange(num_points, dtype=torch.long, device=reference_points_img.device)
+        idx_batch = idx_batch.view(B, 1).expand(B, num_points)
+        idx_point = idx_point.view(1, num_points).expand(B, num_points)
+        reference_points_img = reference_points_img[idx_batch, idx_point, idx_camera]
+        volume_mask = volume_mask[idx_batch, idx_point, idx_camera]
+
+        coors_camera = idx_camera[..., None].float() / (N - 1)
+        reference_points_img = torch.cat([reference_points_img, coors_camera], dim=-1)
+
+        return reference_points_img, volume_mask

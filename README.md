@@ -13,6 +13,7 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 
 ## News
 
+* **2025-04-24**: Following [SparseBEV](https://github.com/MCG-NJU/SparseBEV), we optimized the 2D-to-3D image feature transformation process, achieving substantial reductions in GPU memory consumption while slightly reducing training time. Check the config [file](./configs/nuscenes/occ3d/daocc_occ3d_wo_mask_v2.yaml).
 * **2025-01-31**: Release the model weights and the first version of the code.
 * **2024-10-01**: Our preprint is available on [arXiv](https://arxiv.org/abs/2409.19972).
 
