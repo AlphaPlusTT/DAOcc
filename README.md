@@ -12,7 +12,7 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 ![](figs/overview.jpg)
 
 ## News
-
+* **2025-07-11**: DAOcc achieved 54.33 mIoU on Occ3D-nuScenes without EMA.
 * **2025-04-24**: Following [SparseBEV](https://github.com/MCG-NJU/SparseBEV), we optimized the 2D-to-3D image feature transformation process, achieving substantial reductions in GPU memory consumption while slightly reducing training time. Check the config [file](./configs/nuscenes/occ3d/daocc_occ3d_wo_mask_v2.yaml).
 * **2025-01-31**: Release the model weights and the first version of the code.
 * **2024-10-01**: Our preprint is available on [arXiv](https://arxiv.org/abs/2409.19972).
@@ -29,6 +29,10 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 | Method | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | RayIoU |   Config   |     Model      |     Log      |
 |:------:|:-----------------:|:--------------------:|:----------------------:|:------:|:----------:|:--------------:|:------------:|
 | DAOcc  |         ×         |         R50          |        256×704         |  48.2  | [config](configs/nuscenes/occ3d/daocc_occ3d_wo_mask.yaml) | [model](https://drive.google.com/file/d/12naKlrec09QEF-7mGtAyW07au1WjYeKI/view?usp=sharing) | [log](https://drive.google.com/file/d/1XK3O4RLYxT_33kmVuWGu4Pt9Wj9X72AA/view?usp=sharing) |
+
+| Method | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | mIoU  |   Config   |   Model   |   Log   |
+|:------:|:-----------------:|:--------------------:|:----------------------:|:-----:|:----------:|:---------:|:-------:|
+| DAOcc  |         √         |         R50          |        256×704         | 54.33 | [config](configs/nuscenes/occ3d/daocc_occ3d_wo_mask_v2.yaml) | [model](https://drive.google.com/file/d/1JCrXzCkiiBROUHJuYyjefZ3qCaTrGPwv/view?usp=sharing) | [log](https://drive.google.com/file/d/1V1l9R7u_4TLDdZAMIIr6S4nzt-rkqo3i/view?usp=sharing) |
 
 - \* means use exponential moving average (EMA) hook.
 
@@ -48,6 +52,7 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 - [Installation](docs/install.md) 
 - [Prepare Dataset](docs/data.md)
 - [Train and Eval](docs/run.md)
+- [Visualization](docs/vis.md)
 
 ## Citation
 

@@ -21,16 +21,10 @@ python tools/train.py PATH_TO_CONFIG --run-dir CHECKPOINT_SAVE_DIR --model.encod
 
 Evaluate DAOcc with 8 RTX4090 GPUs:
 ```
-torchpack dist-run -np 8 python tools/test.py PATH_TO_CONFIG PATH_TO_WEIGHT --dist --eval bbox
+torchpack dist-run -np 8 python tools/test.py PATH_TO_CONFIG PATH_TO_WEIGHT --dist
 ```
 
 Evaluate DAOcc with single GPU:
 ```
-python tools/test.py PATH_TO_CONFIG PATH_TO_WEIGHT --eval bbox
-```
-
-**Visualization**
-
-```
-python tools/visualize.py PATH_TO_CONFIG --checkpoint PATH_TO_CHECKPOINT
+python tools/test.py PATH_TO_CONFIG PATH_TO_WEIGHT
 ```

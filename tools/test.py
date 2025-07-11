@@ -46,6 +46,7 @@ def parse_args():
         "--eval",
         type=str,
         nargs="+",
+        default=['bbox'],
         help='evaluation metrics, which depends on the dataset, e.g., "bbox",'
         ' "segm", "proposal" for COCO, and "mAP", "recall" for PASCAL VOC'
         '[CUSTOM] no practical effect in this project, just not None',
