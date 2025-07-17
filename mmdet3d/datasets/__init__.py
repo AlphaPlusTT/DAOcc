@@ -5,4 +5,6 @@ from .custom_3d import *
 from .nuscenes_dataset import *
 from .pipelines import *
 from .utils import *
-from .nuscenes_dataset_w_occ import *
+from .nuscenes_occupancy_dataset import *
+from .waymo_dataset import *
+from .waymo_occupancy_dataset import *

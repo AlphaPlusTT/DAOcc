@@ -124,6 +124,80 @@ class ImageAug3D:
 
 
 @PIPELINES.register_module()
+class ImageAug3DWaymo(ImageAug3D):
+    def __init__(self, final_dim, resize_lim, bot_pct_lim, rot_lim, rand_flip, is_train):
+        super().__init__(final_dim, resize_lim, bot_pct_lim, rot_lim, rand_flip, is_train)
+        self.final_dim = final_dim
+        self.resize_lim = resize_lim
+        self.bot_pct_lim = bot_pct_lim
+        self.rand_flip = rand_flip
+        self.rot_lim = rot_lim
+        self.is_train = is_train
+
+    def sample_augmentation(self, ori_shape):
+        W, H = ori_shape
+        fH, fW = self.final_dim
+        if self.is_train:
+            # resize = np.random.uniform(*self.resize_lim)
+            # resize_dims = (int(W * resize), int(H * resize))
+            # keep in line with occ
+            resize = float(fW) / float(W)
+            resize += np.random.uniform(*self.resize_lim)
+            resize_dims = (int(W * resize), int(H * resize))
+
+            newW, newH = resize_dims
+            crop_h = int((1 - np.random.uniform(*self.bot_pct_lim)) * newH) - fH
+            crop_w = int(np.random.uniform(0, max(0, newW - fW)))
+            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+            flip = False
+            if self.rand_flip and np.random.choice([0, 1]):
+                flip = True
+            rotate = np.random.uniform(*self.rot_lim)
+        else:
+            # TODO: [yz] check the effect for resize ratio 0.465
+            # resize = np.mean(self.resize_lim)
+            # keep in line with occ
+            resize = float(fW) / float(W)
+
+            resize_dims = (int(W * resize), int(H * resize))
+            newW, newH = resize_dims
+            crop_h = int((1 - np.mean(self.bot_pct_lim)) * newH) - fH
+            crop_w = int(max(0, newW - fW) / 2)
+            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+            flip = False
+            rotate = 0
+        return resize, resize_dims, crop, flip, rotate
+
+    def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        imgs = data["img"]
+        new_imgs = []
+        transforms = []
+        for img, ori_shape in zip(imgs, data["ori_shape"]):
+            resize, resize_dims, crop, flip, rotate = self.sample_augmentation(ori_shape)
+            post_rot = torch.eye(2)
+            post_tran = torch.zeros(2)
+            new_img, rotation, translation = self.img_transform(
+                img,
+                post_rot,
+                post_tran,
+                resize=resize,
+                resize_dims=resize_dims,
+                crop=crop,
+                flip=flip,
+                rotate=rotate,
+            )
+            transform = torch.eye(4)
+            transform[:2, :2] = rotation
+            transform[:2, 3] = translation
+            new_imgs.append(new_img)
+            transforms.append(transform.numpy())
+        data["img"] = new_imgs
+        # update the calibration matrices
+        data["img_aug_matrix"] = transforms
+        return data
+
+
+@PIPELINES.register_module()
 class GlobalRotScaleTrans:
     def __init__(self, resize_lim, rot_lim, trans_lim, is_train):
         self.resize_lim = resize_lim

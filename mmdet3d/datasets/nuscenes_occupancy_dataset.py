@@ -15,8 +15,9 @@ from mmdet.datasets import DATASETS
 from ..core.bbox import LiDARInstance3DBoxes
 from .custom_3d import Custom3DDataset
 from .nuscenes_dataset import NuScenesDataset
-from ..core.evaluation.occ_metrics import Metric_mIoU, Metric_FScore
+from ..core.evaluation.occ3d_nus_metrics import Metric_mIoU, Metric_FScore
 from ..core.evaluation.ray_metrics import calc_ray_iou
+from ..core.evaluation.openocc_metric import openocc_metric, format_SC_results, format_SSC_results, cm_to_ious
 from torch.utils.data import DataLoader
 from .ego_pose_dataset import EgoPoseDataset
 
@@ -81,7 +82,7 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
             use_valid_flag,
         )
         self.resample = resample
-        assert data_type in ['occ3d', 'surround_occ']
+        assert data_type in ['occ3d', 'surround_occ', 'open_occ']
         self.data_type = data_type
 
     def get_data_info(self, index):
@@ -91,17 +92,33 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
             index (int): Index of the sample data to get.
 
         Returns:
+            dict: Data information that will be passed to the data
+                preprocessing pipelines. It includes the following keys:
+
+                - sample_idx (str): Sample index.
+                - pts_filename (str): Filename of point clouds.
+                - sweeps (list[dict]): Infos of sweeps.
+                - timestamp (float): Sample timestamp.
+                - img_filename (str, optional): Image filename.
+                - lidar2img (list[np.ndarray], optional): Transformations
+                    from lidar to different cameras.
+                - ann_info (dict): Annotation info.
         """
         input_dict = super(NuScenesDatasetOccupancy, self).get_data_info(index)
         # standard protocol modified from SECOND.Pytorch
+        # input_dict['occ_gt_path'] = os.path.join(self.data_root, self.data_infos[index]['occ_path'])
         input_dict[self.data_type] = {'occ_gt_path': self.data_infos[index][self.data_type]['occ_path']}
         return input_dict
 
-    def evaluate_occ(self, occ_results, runner=None, show_dir=None, **eval_kwargs):
-        if isinstance(occ_results, list) and isinstance(occ_results[0], dict):
-            assert len(occ_results[0]['occ_pred']) == 1
-            occ_results = [o['occ_pred'][0] for o in occ_results]
+    def evaluate_occ(self, occ_results, show_dir=None, **eval_kwargs):
+        # occ_results: [{'occ_pred': [ndarray:(200, 200, 16)]}, 'occ_score': ] * 6019
+        # if isinstance(occ_results, list) and isinstance(occ_results[0], dict):
+        #     assert len(occ_results[0]['occ_pred']) == 1
+        #     occ_results = [o['occ_pred'][0] for o in occ_results]  # [ndarray:(200, 200, 16)] * 6019
+        occ_results = [o['occ_pred'] for o in occ_results]  # [ndarray:(200,200,16)] * 6019
+        # metric = eval_kwargs['metric'][0]
         metric = 'mIoU'
+        # metric = 'ray-iou'
         if 'occ_metric' in eval_kwargs:
             metric = eval_kwargs['occ_metric']
         assert metric in ['mIoU', 'Ray-IoU']
@@ -129,6 +146,7 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
 
                     data_id = sample_tokens.index(token)
                     info = self.data_infos[data_id]
+                    # occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
                     occ_gt = np.load(os.path.join(info[self.data_type]['occ_path'], 'labels.npz'))
                     gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
                     mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
@@ -151,11 +169,14 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
 
                 print('\nStarting Evaluation...')
                 for index, occ_pred in enumerate(tqdm(occ_results)):
+                    # occ_pred: (Dx, Dy, Dz)
                     info = self.data_infos[index]
+                    # occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
                     occ_gt = np.load(os.path.join(info[self.data_type]['occ_path'], 'labels.npz'))
                     gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
                     mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
                     mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
+                    # occ_pred = occ_pred
                     self.occ_eval_metrics.add_batch(
                         occ_pred,   # (Dx, Dy, Dz)
                         gt_semantics,   # (Dx, Dy, Dz)
@@ -163,8 +184,15 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
                         mask_camera     # (Dx, Dy, Dz)
                     )
 
+                    # if index % 100 == 0 and show_dir is not None:
+                    #     gt_vis = self.vis_occ(gt_semantics)
+                    #     pred_vis = self.vis_occ(occ_pred)
+                    #     mmcv.imwrite(np.concatenate([gt_vis, pred_vis], axis=1),
+                    #                  os.path.join(show_dir + "%d.jpg"%index))
+
                     if show_dir is not None:
                         mmcv.mkdir_or_exist(show_dir)
+                        # scene_name = info['scene_name']
                         scene_name = [tem for tem in info[self.data_type]['occ_path'].split('/') if 'scene-' in tem][0]
                         sample_token = info['token']
                         mmcv.mkdir_or_exist(os.path.join(show_dir, scene_name, sample_token))
@@ -172,7 +200,7 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
                         np.savez_compressed(save_path, pred=occ_pred, gt=occ_gt, sample_token=sample_token)
 
                 eval_results = self.occ_eval_metrics.count_miou_metric()
-            else:
+            elif self.data_type == 'surround_occ':
                 print('\nStarting Evaluation...')
                 class_num = 17
                 class_names = {0: 'IoU', 1: 'barrier', 2: 'bicycle', 3: 'bus', 4: 'car', 5: 'construction_vehicle',
@@ -183,15 +211,25 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
                 eval_results = {}
                 results = []
                 for index, occ_pred in enumerate(tqdm(occ_results)):
+                    # occ_pred: (Dx, Dy, Dz)
                     info = self.data_infos[index]
                     occ = np.load(info[self.data_type]['occ_path'])
                     occ = occ.astype(np.int32)  # TODO: why np.float32 ?
 
+                    # class 0 is 'ignore' class
+                    # if self.use_semantic:
+                    #     occ[..., 3][occ[..., 3] == 0] = 255
+                    # else:
+                    #     occ = occ[occ[..., 3] > 0]
+                    #     occ[..., 3] = 1
                     gt = np.zeros(surround_occ_shape, dtype=np.int32)
                     occ[..., 3][occ[..., 3] == 0] = 255
                     coords = occ[:, :3].astype(np.int32)
                     gt[coords[:, 0], coords[:, 1], coords[:, 2]] = occ[:, 3]
 
+                    # gt_i, pred_i = gt_occ[i].cpu().numpy(), pred_occ[i].cpu().numpy()
+                    # gt_i = gt_to_voxel(gt_i, img_metas)
+                    # pdb.set_trace()  # gt_i: (200, 200, 16), pred_i: (200, 200, 16)
                     mask = (gt != 255)
                     score = np.zeros((class_num, 3))
                     for j in range(class_num):
@@ -219,6 +257,52 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
                 for i in range(class_num):
                     eval_results[f'occ/{class_names[i]}/iou'] = mean_ious[i]
                 eval_results[f'occ/mIoU'] = np.mean(np.array(mean_ious)[1:])
+            else:  # open_occ
+                open_occ_shape = [512, 512, 40]
+                # init predictions
+                SC_metrics = []
+                SSC_metrics = []
+                for index, occ_pred in enumerate(tqdm(occ_results)):
+                    # occ_pred: (Dx, Dy, Dz)
+                    info = self.data_infos[index]
+                    occ = np.load(info[self.data_type]['occ_path'])
+                    occ = occ[:, [2, 1, 0, 3]]  # z y x cls -> x y z cls
+                    occ = occ.astype(np.int32)  # TODO: why np.float32 ?
+
+                    # class 0 is 'ignore' class
+                    # if self.use_semantic:
+                    #     occ[..., 3][occ[..., 3] == 0] = 255
+                    # else:
+                    #     occ = occ[occ[..., 3] > 0]
+                    #     occ[..., 3] = 1
+                    gt = np.zeros(open_occ_shape, dtype=np.int32)
+                    occ[:, 3][occ[:, 3] == 0] = 255
+                    coords = occ[:, :3].astype(np.int32)
+                    gt[coords[:, 0], coords[:, 1], coords[:, 2]] = occ[:, 3]
+
+                    SC_metric, _ = openocc_metric(occ_pred, gt, eval_type='SC', empty_idx=0, visible_mask=None)
+                    SSC_metric, SSC_occ_metric = openocc_metric(occ_pred, gt, eval_type='SSC', empty_idx=0, visible_mask=None)
+
+                    SC_metrics.append(SC_metric)
+                    SSC_metrics.append(SSC_metric)
+                eval_results = {}
+                res = {}
+                res['SC_metric'] = [sum(SC_metrics)]
+                res['SSC_metric'] = [sum(SSC_metrics)]
+
+                ''' evaluate SC '''
+                evaluation_semantic = sum(res['SC_metric'])  # ndarray: (2, 2)
+                ious = cm_to_ious(evaluation_semantic)
+                res_table, res_dic = format_SC_results(ious[1:], return_dic=True)
+                for key, val in res_dic.items():
+                    eval_results['occ/SC_{}'.format(key)] = val
+
+                ''' evaluate SSC '''
+                evaluation_semantic = sum(res['SSC_metric'])  # ndarray: (17, 17)
+                ious = cm_to_ious(evaluation_semantic)
+                res_table, res_dic = format_SSC_results(ious, return_dic=True)
+                for key, val in res_dic.items():
+                    eval_results['occ/SSC_{}'.format(key)] = val
 
         return eval_results
 
@@ -262,7 +346,7 @@ class NuScenesDatasetOccupancy(NuScenesDataset):
             if tmp_dir is not None:
                 tmp_dir.cleanup()
 
-        if "occ_pred" in results[0]:
+        if "occ_pred" in results[0]:  # results: [{'occ_pred': [ndarray:(200, 200, 16)]}]
             metrics.update(self.evaluate_occ(results, **kwargs))
 
         return metrics

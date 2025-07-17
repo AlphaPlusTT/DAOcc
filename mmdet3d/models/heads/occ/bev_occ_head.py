@@ -120,7 +120,7 @@ class BEVOCCHead2D(BaseModule):
             # (B, Dx, Dy, Dz) --> (B*Dx*Dy*Dz, )
             voxel_semantics = voxel_semantics.reshape(-1)
             # (B, Dx, Dy, Dz, n_cls) --> (B*Dx*Dy*Dz, n_cls)
-            preds = occ_pred.reshape(-1, self.num_classes)
+            preds = einops.rearrange(occ_pred, 'b x y z cls -> (b x y z) cls')
             # (B, Dx, Dy, Dz) --> (B*Dx*Dy*Dz, )
             mask_camera = mask_camera.reshape(-1)
 
@@ -141,7 +141,7 @@ class BEVOCCHead2D(BaseModule):
             loss['loss_occ'] = loss_occ
         else:
             voxel_semantics = voxel_semantics.reshape(-1)
-            preds = occ_pred.reshape(-1, self.num_classes)
+            preds = einops.rearrange(occ_pred, 'b x y z cls -> (b x y z) cls')
 
             if self.class_balance:
                 num_total_samples = 0
@@ -154,21 +154,22 @@ class BEVOCCHead2D(BaseModule):
                 preds,
                 voxel_semantics,
                 avg_factor=num_total_samples,
+                # ignore_index=255  # for surround_occ
             )
 
             loss['loss_occ'] = loss_occ
         return loss
 
-    def get_occ(self, occ_pred, img_metas=None):
+    def get_occ(self, occ_pred, gt=None):
         """
         Args:
             occ_pred: (B, Dx, Dy, Dz, C)
-            img_metas:
+            gt: (B, Dx, Dy, Dz)
 
         Returns:
             List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         """
-        occ_score = occ_pred.softmax(-1)    # (B, Dx, Dy, Dz, C)
-        occ_res = occ_score.argmax(-1)      # (B, Dx, Dy, Dz)
-        occ_res = occ_res.cpu().numpy().astype(np.uint8)     # (B, Dx, Dy, Dz)
-        return list(occ_res)
+        occ_score = occ_pred.softmax(-1)
+        occ_res = occ_score.argmax(-1)
+        occ_res = occ_res.cpu().numpy().astype(np.uint8)
+        return occ_res

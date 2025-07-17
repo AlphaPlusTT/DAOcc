@@ -82,6 +82,83 @@ class LoadMultiViewImageFromFiles:
 
 
 @PIPELINES.register_module()
+class LoadMultiViewImageFromFilesWaymo:
+    """Load multi channel images from a list of separate channel files.
+
+    Expects results['image_paths'] to be a list of filenames.
+
+    Args:
+        to_float32 (bool): Whether to convert the img to float32.
+            Defaults to False.
+        color_type (str): Color type of the file. Defaults to 'unchanged'.
+    """
+
+    def __init__(self, to_float32=False, color_type="unchanged", image_type=None):
+        self.to_float32 = to_float32
+        self.color_type = color_type
+        self.image_type = image_type
+        assert image_type in ['jpg', 'png', None]
+
+    def __call__(self, results):
+        """Call function to load multi-view image from files.
+
+        Args:
+            results (dict): Result dict containing multi-view image filenames.
+
+        Returns:
+            dict: The result dict containing the multi-view image data. \
+                Added keys and values are described below.
+
+                - filename (str): Multi-view image filenames.
+                - img (np.ndarray): Multi-view image arrays.
+                - img_shape (tuple[int]): Shape of multi-view image arrays.
+                - ori_shape (tuple[int]): Shape of original image arrays.
+                - pad_shape (tuple[int]): Shape of padded image arrays.
+                - scale_factor (float): Scale factor.
+                - img_norm_cfg (dict): Normalization configuration of images.
+        """
+        filename = results["image_paths"]
+        # img is of shape (h, w, c, num_views)
+        # modified for waymo
+        images = []
+        img_shapes = []
+        ori_shapes = []
+        pad_shapes = []
+        h, w = 0, 0
+        for name in filename:
+            if self.image_type:
+                cur_name, cur_ext = os.path.splitext(name)
+                name = cur_name + '.' + self.image_type
+            image = Image.open(name)
+            images.append(image)
+            img_shapes.append(image.size)
+            ori_shapes.append(image.size)
+            pad_shapes.append(image.size)
+
+        # TODO: consider image padding in waymo
+
+        results["filename"] = filename
+        # unravel to list, see `DefaultFormatBundle` in formating.py
+        # which will transpose each image separately and then stack into array
+        results["img"] = images
+        # [1600, 900]
+        results["img_shape"] = img_shapes
+        results["ori_shape"] = ori_shapes
+        # Set initial values for default meta_keys
+        results["pad_shape"] = pad_shapes
+        results["scale_factor"] = 1.0
+
+        return results
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f"(to_float32={self.to_float32}, "
+        repr_str += f"color_type='{self.color_type}')"
+        return repr_str
+
+
+@PIPELINES.register_module()
 class LoadPointsFromMultiSweeps:
     """Load points from multiple sweeps.
 
@@ -339,6 +416,7 @@ class LoadPointsFromFile:
         use_color=False,
         load_augmented=None,
         reduce_beams=None,
+        tanh_dim=None,
     ):
         self.shift_height = shift_height
         self.use_color = use_color
@@ -354,6 +432,7 @@ class LoadPointsFromFile:
         self.use_dim = use_dim
         self.load_augmented = load_augmented
         self.reduce_beams = reduce_beams
+        self.tanh_dim = tanh_dim
 
     def _load_points(self, lidar_path):
         """Private function to load point clouds data.
@@ -420,6 +499,9 @@ class LoadPointsFromFile:
                     ]
                 )
             )
+
+        if self.tanh_dim:
+            points[:, self.tanh_dim] = np.tanh(points[:, self.tanh_dim])
 
         points_class = get_points_type(self.coord_type)
         points = points_class(
@@ -562,10 +644,11 @@ class LoadAnnotations3D(LoadAnnotations):
 @PIPELINES.register_module()
 class LoadOccGTFromFile:
 
-    def __init__(self, data_type='occ3d', surround_occ_shape=[200, 200, 16]):
-        assert data_type in ['occ3d', 'surround_occ']
+    def __init__(self, data_type='occ3d'):
+        # TODO: [yz] surround_occ_shape repeated defined in nuscenes_dataset_w_occ.py
+        assert data_type in ['occ3d', 'surround_occ', 'open_occ']
         self.data_type = data_type
-        self.surround_occ_shape = surround_occ_shape
+        self.occ_shape = {'surround_occ': [200, 200, 16], 'open_occ': [512, 512, 40]}
 
     def __call__(self, results):
         if self.data_type == 'occ3d':
@@ -581,10 +664,24 @@ class LoadOccGTFromFile:
             results['mask_lidar'] = mask_lidar  # (200, 200, 16)
             results['mask_camera'] = mask_camera  # (200, 200, 16)
         else:  # self.data_type == 'surround_occ':
-            occ = np.load(results['surround_occ']['occ_gt_path'])
+            # ---------------------------------------------------------------------------------->
+            # The suffix of the gt file generated by surroundocc is npy,
+            # but the suffix in the .pkl file has npy removed.
+            # if results['surround_occ']['occ_gt_path'].split('.')[-1] != 'npy':
+            #     results['surround_occ']['occ_gt_path'] = results['surround_occ']['occ_gt_path'] + '.npy'
+            # <----------------------------------------------------------------------------------
+            occ = np.load(results[self.data_type]['occ_gt_path'])
+            if self.data_type == 'open_occ':
+                occ = occ[..., [2, 1, 0, 3]]
             occ = occ.astype(np.float32)
 
-            gt = np.zeros(self.surround_occ_shape, dtype=np.float32)
+            # class 0 is 'ignore' class
+            # if self.use_semantic:
+            #     occ[..., 3][occ[..., 3] == 0] = 255
+            # else:
+            #     occ = occ[occ[..., 3] > 0]
+            #     occ[..., 3] = 1
+            gt = np.zeros(self.occ_shape[self.data_type], dtype=np.float32)
             occ[..., 3][occ[..., 3] == 0] = 255
             coords = occ[:, :3].astype(np.int32)
             gt[coords[:, 0], coords[:, 1], coords[:, 2]] = occ[:, 3]
@@ -595,3 +692,69 @@ class LoadOccGTFromFile:
 
         results["occ_aug_matrix"] = np.eye(4).astype(np.float32)
         return results
+
+
+@PIPELINES.register_module()
+class LoadOccGTFromFileWaymo(object):
+    """Load multi channel images from a list of separate channel files.
+
+    Expects results['img_filename'] to be a list of filenames.
+    note that we read image in BGR style to align with opencv.imread
+    Args:
+        to_float32 (bool): Whether to convert the img to float32.
+            Defaults to False.
+        color_type (str): Color type of the file. Defaults to 'unchanged'.
+    """
+
+    def __init__(
+            self,
+            data_root,
+            use_larger=True,
+            crop_x=False,
+            num_classes=16,
+            free_label=23,
+            use_infov=False,
+    ):
+        self.use_larger = use_larger
+        self.data_root = data_root
+        self.crop_x = crop_x
+        self.num_classes = num_classes
+        self.free_label = free_label
+        self.use_infov = use_infov
+
+    def __call__(self, results):
+        pts_filename = results['pts_filename']
+        basename = os.path.basename(pts_filename)
+        seq_name = basename[1:4]
+        frame_name = basename[4:7]
+        if self.use_larger:
+            file_path = os.path.join(self.data_root, seq_name, '{}_04.npz'.format(frame_name))
+        else:
+            file_path = os.path.join(self.data_root, seq_name, '{}.npz'.format(frame_name))
+        occ_labels = np.load(file_path)
+        semantics = occ_labels['voxel_label']
+        mask_infov = occ_labels['infov']
+        mask_lidar = occ_labels['origin_voxel_state']
+        mask_camera = occ_labels['final_voxel_state']
+        if self.crop_x:
+            w, h, d = semantics.shape
+            semantics = semantics[w // 2:, :, :]
+            mask_infov = mask_infov[w // 2:, :, :]
+            mask_lidar = mask_lidar[w // 2:, :, :]
+            mask_camera = mask_camera[w // 2:, :, :]
+
+        semantics[semantics == self.free_label] = self.num_classes - 1
+        results['voxel_semantics'] = semantics
+        results['mask_infov'] = mask_infov
+        results['mask_lidar'] = mask_lidar
+        results['mask_camera'] = mask_camera
+        if self.use_infov:
+            results['mask_camera'] = np.logical_and(mask_infov, mask_camera)
+
+        results["occ_aug_matrix"] = np.eye(4).astype(np.float32)
+        return results
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        return "{} (data_root={}')".format(
+            self.__class__.__name__, self.data_root)

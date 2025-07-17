@@ -8,7 +8,7 @@ import einops
 from mmdet3d.models.builder import VTRANSFORMS
 from ..utils.reference_poinst import get_reference_points
 
-__all__ = ["BEVTransform"]
+__all__ = ["BEVTransform", "BEVTransformV2"]
 
 
 @VTRANSFORMS.register_module()
@@ -23,7 +23,7 @@ class BEVTransform(BaseModule):
         in_channels (int): Channels of input feature.
         out_channels (int): Channels of transformed feature.
         top_type (str): Coordinate system in which the task is labeled, 'lidar' or 'ego',
-                        eg: 'lidar' for SurroundOcc and 'ego' for Occ3D
+                        eg: 'lidar' for SurroundOcc and 'ego' for Occ3D (camera only)
     """
 
     def __init__(
@@ -295,7 +295,6 @@ class BEVTransformV2(BaseModule):
             self.down_sample = None
         self.fp16_enabled = False  # TODO: important!!! # will be automatically set as true
 
-    # @auto_fp16(apply_to=("x", "points"))
     @force_fp32()
     def forward(self,
                 x,
@@ -335,7 +334,6 @@ class BEVTransformV2(BaseModule):
             camera2sensor = camera2lidar
         else:
             raise NotImplementedError
-        # camera2lidar, cam2imgs, post_rots, post_trans, bda
         reference_points_img, volume_mask = self.point_sampling(camera2sensor, camera_intrinsics[..., :3, :3],
                                                                 img_aug_matrix[..., :3, :3], img_aug_matrix[..., :3, 3],
                                                                 lidar_aug_matrix)
@@ -350,15 +348,12 @@ class BEVTransformV2(BaseModule):
         reference_points_rebatch = reference_points_rebatch.view(bs, max_len, 1, 1, 3)
         reference_points_rebatch = 2 * reference_points_rebatch - 1  # torch.Size([1, 312387, 1, 1, 3])
 
-        # x: b, c, n, h, w
-        # reference_points_rebatch: b, max_len, 1, 1, xyz
         sampling_feats = F.grid_sample(
             x,
             reference_points_rebatch,
             mode='bilinear',
             padding_mode='zeros',
             align_corners=True)
-        # bn, c, max_len, num_points_in_voxel
         sampling_feats = einops.rearrange(sampling_feats,
                                           'b c max_len 1 1 -> b max_len c',
                                           b=bs)

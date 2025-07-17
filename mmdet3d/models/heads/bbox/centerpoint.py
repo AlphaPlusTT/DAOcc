@@ -294,6 +294,7 @@ class CenterHead(BaseModule):
         bias="auto",
         norm_bbox=True,
         init_cfg=None,
+        with_velocity=True,
     ):
         assert init_cfg is None, (
             "To prevent abnormal initialization "
@@ -313,6 +314,7 @@ class CenterHead(BaseModule):
         self.loss_bbox = build_loss(loss_bbox)
         self.bbox_coder = build_bbox_coder(bbox_coder)
         self.num_anchor_per_locs = [n for n in num_classes]
+        self.with_velocity = with_velocity
         self.fp16_enabled = False
 
         # a shared convolution
@@ -491,8 +493,11 @@ class CenterHead(BaseModule):
             heatmap = gt_bboxes_3d.new_zeros(
                 (len(self.class_names[idx]), feature_map_size[1], feature_map_size[0])
             )
-
-            anno_box = gt_bboxes_3d.new_zeros((max_objs, 10), dtype=torch.float32)
+            # TODO: [yz] make it more general
+            if self.with_velocity:
+                anno_box = gt_bboxes_3d.new_zeros((max_objs, 10), dtype=torch.float32)
+            else:
+                anno_box = gt_bboxes_3d.new_zeros((max_objs, 8), dtype=torch.float32)
 
             ind = gt_labels_3d.new_zeros((max_objs), dtype=torch.int64)
             mask = gt_bboxes_3d.new_zeros((max_objs), dtype=torch.uint8)
@@ -558,22 +563,34 @@ class CenterHead(BaseModule):
 
                     mask[new_idx] = 1
                     # TODO: support other outdoor dataset
-                    vx, vy = task_boxes[idx][k][7:]
                     rot = task_boxes[idx][k][6]
                     box_dim = task_boxes[idx][k][3:6]
                     if self.norm_bbox:
                         box_dim = box_dim.log()
-                    anno_box[new_idx] = torch.cat(
-                        [
-                            center - torch.tensor([x, y], device=device),
-                            z.unsqueeze(0),
-                            box_dim,
-                            torch.sin(rot).unsqueeze(0),
-                            torch.cos(rot).unsqueeze(0),
-                            vx.unsqueeze(0),
-                            vy.unsqueeze(0),
-                        ]
-                    )
+                    # for waymo, there is no vx and vy
+                    if self.with_velocity:
+                        vx, vy = task_boxes[idx][k][7:]
+                        anno_box[new_idx] = torch.cat(
+                            [
+                                center - torch.tensor([x, y], device=device),
+                                z.unsqueeze(0),
+                                box_dim,
+                                torch.sin(rot).unsqueeze(0),
+                                torch.cos(rot).unsqueeze(0),
+                                vx.unsqueeze(0),
+                                vy.unsqueeze(0),
+                            ]
+                        )
+                    else:
+                        anno_box[new_idx] = torch.cat(
+                            [
+                                center - torch.tensor([x, y], device=device),
+                                z.unsqueeze(0),
+                                box_dim,
+                                torch.sin(rot).unsqueeze(0),
+                                torch.cos(rot).unsqueeze(0),
+                            ]
+                        )
 
             heatmaps.append(heatmap)
             anno_boxes.append(anno_box)
@@ -603,17 +620,27 @@ class CenterHead(BaseModule):
             )
             target_box = anno_boxes[task_id]
             # reconstruct the anno_box from multiple reg heads
-            preds_dict[0]["anno_box"] = torch.cat(
-                (
-                    preds_dict[0]["reg"],
-                    preds_dict[0]["height"],
-                    preds_dict[0]["dim"],
-                    preds_dict[0]["rot"],
-                    preds_dict[0]["vel"],
-                ),
-                dim=1,
-            )
-
+            if self.with_velocity:
+                preds_dict[0]["anno_box"] = torch.cat(
+                    (
+                        preds_dict[0]["reg"],
+                        preds_dict[0]["height"],
+                        preds_dict[0]["dim"],
+                        preds_dict[0]["rot"],
+                        preds_dict[0]["vel"],
+                    ),
+                    dim=1,
+                )
+            else:
+                preds_dict[0]["anno_box"] = torch.cat(
+                    (
+                        preds_dict[0]["reg"],
+                        preds_dict[0]["height"],
+                        preds_dict[0]["dim"],
+                        preds_dict[0]["rot"],
+                    ),
+                    dim=1,
+                )
             # Regression loss for dimension, offset, height, rotation
             ind = inds[task_id]
             num = masks[task_id].float().sum()

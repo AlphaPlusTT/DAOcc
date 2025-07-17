@@ -50,7 +50,7 @@ pip install PyQt5
 To visualize the predicted occupancy, use the following command:
 
 ```bash
-python tools/visual_occ3d.py viz/occ/1531281439800013-*.npy
+python tools/vis_occ3d.py viz/occ/1531281439800013-*.npy
 ```
 
 * Replace the file name with the actual `.npy` file name. Do not use wildcards (`*`) in the command.

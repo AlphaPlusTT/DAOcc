@@ -1,7 +1,9 @@
 import argparse
+from os import path as osp
 
 from data_converter import nuscenes_converter as nuscenes_converter
 from data_converter.create_gt_database import create_groundtruth_database
+from data_converter import kitti_converter as kitti
 
 
 def nuscenes_data_prep(
@@ -49,6 +51,49 @@ def nuscenes_data_prep(
         f"{out_dir}/{info_prefix}_infos_train.pkl",
         load_augmented=load_augmented,
     )
+
+def waymo_data_prep(root_path,
+                    info_prefix,
+                    version,
+                    out_dir,
+                    workers,
+                    max_sweeps=5):
+    """Prepare the info file for waymo dataset.
+
+    Args:
+        root_path (str): Path of dataset root.
+        info_prefix (str): The prefix of info filenames.
+        out_dir (str): Output directory of the generated info file.
+        workers (int): Number of threads to be used.
+        max_sweeps (int): Number of input consecutive frames. Default: 5 \
+            Here we store pose information of these frames for later use.
+    """
+    from data_converter import waymo_converter as waymo
+
+    splits = ['training', 'validation', 'testing']
+    for i, split in enumerate(splits):
+        load_dir = osp.join(root_path, 'waymo_format', split)
+        if split == 'validation':
+            save_dir = osp.join(out_dir, 'kitti_format', 'training')
+        else:
+            save_dir = osp.join(out_dir, 'kitti_format', split)
+        converter = waymo.Waymo2KITTI(
+            load_dir,
+            save_dir,
+            prefix=str(i),
+            workers=workers,
+            test_mode=(split == 'test'))
+        converter.convert()
+    # Generate waymo infos
+    out_dir = osp.join(out_dir, 'kitti_format')
+    kitti.create_waymo_info_file(out_dir, info_prefix, max_sweeps=max_sweeps)
+    # create_groundtruth_database(
+    #     'WaymoDataset',
+    #     out_dir,
+    #     info_prefix,
+    #     f'{out_dir}/{info_prefix}_infos_train.pkl',
+    #     relative_path=False,
+    #     with_mask=False)
 
 
 parser = argparse.ArgumentParser(description="Data converter arg parser")
@@ -128,3 +173,11 @@ if __name__ == "__main__":
             max_sweeps=args.max_sweeps,
             load_augmented=load_augmented,
         )
+    elif args.dataset == 'waymo':
+        waymo_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
+            version=args.version,
+            out_dir=args.out_dir,
+            workers=args.workers,
+            max_sweeps=args.max_sweeps)

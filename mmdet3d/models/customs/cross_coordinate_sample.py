@@ -1,5 +1,5 @@
 from typing import List
-
+import warnings
 import torch
 import einops
 import torch.nn.functional as F
@@ -30,7 +30,12 @@ class CrossCoordinateSample(BaseModule):
         super().__init__()
         ref_points = get_reference_points(*point_range, *point_num)
         self.register_buffer('ref_points', ref_points)
-        self.lidar_y_min, self.lidar_y_max, self.lidar_x_min, self.lidar_x_max = lidar_point_range
+        if len(lidar_point_range) == 4:
+            warnings.warn("4-element lidar_point_range is deprecated, please use 6-element format")
+            self.lidar_y_min, self.lidar_y_max, self.lidar_x_min, self.lidar_x_max = lidar_point_range
+        else:
+            assert len(lidar_point_range) == 6
+            self.lidar_x_min, self.lidar_y_min, _, self.lidar_x_max, self.lidar_y_max, _ = lidar_point_range
         self.output_h, self.output_w = point_num[:2]
         assert point_type in ['ego', 'lidar']
         self.point_type = point_type

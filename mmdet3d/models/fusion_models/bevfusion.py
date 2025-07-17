@@ -340,7 +340,7 @@ class BEVFusion(Base3DFusionModel):
                     for k in range(batch_size):
                         outputs[k].update(
                             {
-                                "occ_pred": occ_pred,  # already in cpu
+                                "occ_pred": occ_pred[k],  # already in cpu
                             }
                         )
                 else:

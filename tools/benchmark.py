@@ -10,6 +10,7 @@ from mmdet3d.models import build_fusion_model
 from torchpack.utils.config import configs
 from mmdet3d.utils import recursive_eval
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="MMDet benchmark a model")
     parser.add_argument("config", help="test config file path")
@@ -19,6 +20,7 @@ def parse_args():
     parser.add_argument("--fp16", action="store_true")
     args = parser.parse_args()
     return args
+
 
 def main():
     args = parse_args()
@@ -79,7 +81,7 @@ def main():
                 )
 
         if (i + 1) == args.samples:
-            pure_inf_time += elapsed
+            # pure_inf_time += elapsed
             fps = (i + 1 - num_warmup) / pure_inf_time
             print(f"Overall fps: {fps:.1f} img / s")
             break

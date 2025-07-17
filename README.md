@@ -34,8 +34,6 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 |:------:|:-----------------:|:--------------------:|:----------------------:|:-----:|:----------:|:---------:|:-------:|
 | DAOcc  |         √         |         R50          |        256×704         | 54.33 | [config](configs/nuscenes/occ3d/daocc_occ3d_wo_mask_v2.yaml) | [model](https://drive.google.com/file/d/1JCrXzCkiiBROUHJuYyjefZ3qCaTrGPwv/view?usp=sharing) | [log](https://drive.google.com/file/d/1V1l9R7u_4TLDdZAMIIr6S4nzt-rkqo3i/view?usp=sharing) |
 
-- \* means use exponential moving average (EMA) hook.
-
 ### 3D Semantic Occupancy Prediction on [SurroundOcc](https://github.com/weiyithu/SurroundOcc)
 
 | Method | Image <br/> Backbone | Image <br/> Resolution | IoU  | mIoU |   Config   |     Model      |     Log      |
@@ -44,9 +42,19 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 
 ### 3D Semantic Occupancy Prediction on [OpenOccupancy](https://github.com/JeffWang987/OpenOccupancy)
 
-| Method | Image <br/> Backbone | Image <br/> Resolution | IoU  | mIoU | Config | Model | Log |
-|:------:|:--------------------:|:----------------------:|:----:|:----:|:------:|:-----:|:---:|
-| DAOcc  |         R18          |        256×704         | 32.2 | 24.1 |   -    |   -   |  -  |
+| Method | Image <br/> Backbone | Image <br/> Resolution | IoU  | mIoU |   Config   |   Model   |   Log   |
+|:------:|:--------------------:|:----------------------:|:----:|:----:|:----------:|:---------:|:-------:|
+| DAOcc  |         R18          |        256×704         | 32.2 | 24.1 | [config](configs/nuscenes/openocc/daocc_openocc.yaml) | [model](https://drive.google.com/file/d/1CTepfmRQOSIk69DjG6U3gdEK0nGppKbM/view?usp=sharing) | [log](https://drive.google.com/file/d/1v92eqhO9-iXBSOqmEX8Gsdc9EaLGVMxC/view?usp=sharing) |
+
+### 3D Semantic Occupancy Prediction on [Occ3D-Waymo](https://github.com/JeffWang987/OpenOccupancy)
+
+| Method | Image <br/> Backbone | Image <br/> Resolution | mIoU  |                           Config                            | Model |   Log   |
+|:------:|:--------------------:|:----------------------:|:-----:|:-----------------------------------------------------------:|:-----:|:-------:|
+| DAOcc  |         R50          |        256×704         | 44.69 | [config](configs/waymo/occ3d/daocc_occ3d_waymo_w_mask.yaml) |   -   | [log](https://drive.google.com/file/d/1uZIrOrjFyIAz4F1Uv3cs-NlSoqVp7Sq1/view?usp=sharing) |
+| DAOcc* |         R50          |        256×704         | 45.13 |                              -                              |   -   |    -    |
+
+- The `*` means using exponential moving average (EMA) hook.
+- For Occ3D-Waymo, we use only 20% of the training data.
 
 ## Getting Started
 - [Installation](docs/install.md) 

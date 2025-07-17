@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 
 from ..bbox import LiDARInstance3DBoxes
 
-__all__ = ["visualize_camera", "visualize_lidar", "visualize_map"]
+__all__ = ["visualize_camera", "visualize_lidar", "visualize_map", "visualize_lidar_o3d"]
 
 
 OBJECT_PALETTE = {
@@ -23,6 +23,11 @@ OBJECT_PALETTE = {
     "bicycle": (220, 20, 60),
     "pedestrian": (0, 0, 230),
     "traffic_cone": (47, 79, 79),
+
+    # support waymo
+    "Car": (255, 158, 0),
+    "Pedestrian": (0, 0, 230),
+    "Cyclist": (220, 20, 60),
 }
 
 MAP_PALETTE = {
@@ -181,3 +186,73 @@ def visualize_map(
 
     mmcv.mkdir_or_exist(os.path.dirname(fpath))
     mmcv.imwrite(canvas, fpath)
+
+
+# 盒子边定义：12 条棱
+_BOX_EDGES = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+]
+
+
+def visualize_lidar_o3d(
+    lidar: np.ndarray,
+    bboxes: Optional[LiDARInstance3DBoxes] = None,
+    labels: Optional[np.ndarray] = None,
+    classes: Optional[List[str]] = None,
+    point_size: float = 1.0,
+):
+    """
+    在线交互式可视化 LiDAR 点云与 3D 框
+
+    Args:
+        lidar: (N,3) 点云数组
+        bboxes: LiDARInstance3DBoxes，含 .corners 属性 (Nbox,8,3)
+        labels: (Nbox,) 每个框的类别索引
+        classes: 类名列表，用 labels 取名，再映射 OBJECT_PALETTE
+        point_size: 点云在可视化中的大小
+    """
+    try:
+        import open3d as o3d
+    except ImportError:
+        raise ImportError(
+            'Please run "pip install open3d" to install open3d first.')
+
+    vis_geom = []
+
+    # 1. point cloud
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(lidar[:, :3])
+    # white
+    pcd.paint_uniform_color([1.0,1.0,1.0])
+    vis_geom.append(pcd)
+
+    # 2. bbox
+    if bboxes is not None and labels is not None and classes is not None:
+        corners = bboxes.corners  # numpy array (Nbox,8,3)
+        for i in range(len(corners)):
+            box_pts = corners[i]  # (8,3)
+            # Construct LineSet
+            lines = o3d.geometry.LineSet()
+            lines.points = o3d.utility.Vector3dVector(box_pts)
+            lines.lines = o3d.utility.Vector2iVector(_BOX_EDGES)
+            # Line color
+            cls_name = classes[labels[i]]
+            color_255 = OBJECT_PALETTE.get(cls_name, (255,255,255))
+            color = [c/255.0 for c in color_255]
+            lines.colors = o3d.utility.Vector3dVector([color for _ in _BOX_EDGES])
+            vis_geom.append(lines)
+
+    # 3. visualize
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(window_name='LiDAR Viewer')
+    for g in vis_geom:
+        vis.add_geometry(g)
+    ctr = vis.get_view_control()
+    ctr.set_zoom(0.35)
+    render_opt = vis.get_render_option()
+    render_opt.point_size = point_size
+    render_opt.background_color = np.asarray([0,0,0])
+    vis.run()
+    vis.destroy_window()
