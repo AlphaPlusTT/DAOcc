@@ -48,10 +48,10 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 
 ### 3D Semantic Occupancy Prediction on [Occ3D-Waymo](https://github.com/JeffWang987/OpenOccupancy)
 
-| Method | Image <br/> Backbone | Image <br/> Resolution | mIoU  |                           Config                            | Model |   Log   |
-|:------:|:--------------------:|:----------------------:|:-----:|:-----------------------------------------------------------:|:-----:|:-------:|
-| DAOcc  |         R50          |        256×704         | 44.69 | [config](configs/waymo/occ3d/daocc_occ3d_waymo_w_mask.yaml) |   -   | [log](https://drive.google.com/file/d/1uZIrOrjFyIAz4F1Uv3cs-NlSoqVp7Sq1/view?usp=sharing) |
-| DAOcc* |         R50          |        256×704         | 45.13 |                              -                              |   -   |    -    |
+| Method | Camera <br/> Mask | Infov <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | mIoU  |                           Config                            | Model |   Log   |
+|:------:|:-----------------:|:----------------:|:--------------------:|:----------------------:|:-----:|:-----------------------------------------------------------:|:-----:|:-------:|
+| DAOcc  |         √         |        √         |         R50          |        256×704         | 44.69 | [config](configs/waymo/occ3d/daocc_occ3d_waymo_w_mask.yaml) |   -   | [log](https://drive.google.com/file/d/1uZIrOrjFyIAz4F1Uv3cs-NlSoqVp7Sq1/view?usp=sharing) |
+| DAOcc* |         √         |        √         |         R50          |        256×704         | 45.13 |                              -                              |   -   |    -    |
 
 - The `*` means using exponential moving average (EMA) hook.
 - For Occ3D-Waymo, we use only 20% of the training data.
