@@ -43,7 +43,7 @@ pip install Shapely==1.7.1
 
 **e. Clone DAOcc and install the codebase.**
 ```shell
-git clone https://github.com/AlphaPlusTT/DAOcc-dev.git
-cd DAOcc-dev
+git clone https://github.com/AlphaPlusTT/DAOcc.git
+cd DAOcc
 python setup.py develop
 ```
