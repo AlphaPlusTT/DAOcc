@@ -221,7 +221,7 @@ data:
     dataset:
       type: ${dataset_type}
       dataset_root: ${dataset_root}
-      ann_file: ${dataset_root + "nuscenes_infos_train_w_2occ.pkl"}
+      ann_file: ${dataset_root + "nuscenes_infos_train_w_3occ.pkl"}
       pipeline: ${train_pipeline}
       object_classes: ${object_classes}
       modality: ${input_modality}
@@ -232,7 +232,7 @@ data:
   val:
     type: ${dataset_type}
     dataset_root: ${dataset_root}
-    ann_file: ${dataset_root + "nuscenes_infos_val_w_2occ.pkl"}
+    ann_file: ${dataset_root + "nuscenes_infos_val_w_3occ.pkl"}
     pipeline: ${test_pipeline}
     object_classes: ${object_classes}
     modality: ${input_modality}
@@ -242,7 +242,7 @@ data:
   test:
     type: ${dataset_type}
     dataset_root: ${dataset_root}
-    ann_file: ${dataset_root + "nuscenes_infos_val_w_2occ.pkl"}
+    ann_file: ${dataset_root + "nuscenes_infos_val_w_3occ.pkl"}
     pipeline: ${test_pipeline}
     object_classes: ${object_classes}
     modality: ${input_modality}
