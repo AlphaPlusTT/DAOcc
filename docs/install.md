@@ -11,7 +11,7 @@ conda activate daocc
 pip install torch==1.10.2+cu113 torchvision==0.11.3+cu113 -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
-**c. Install [openmpi-4.0.4](https://www.open-mpi.org/software/ompi/v4.0/)**
+**c. Install [openmpi-4.0.4](https://www.open-mpi.org/software/ompi/v4.0/) (optional and deprecated)**
 ```shell
 # Create an installation path. eg: INSTALL_PATH=~/local/openmpi-4.0.4
 tar -xzvf openmpi-4.0.4.tar.gz
