@@ -37,7 +37,7 @@ pip install ninja==1.11.1.1
 pip install einops==0.8.0
 pip install yapf==0.40.0
 pip install pillow==8.4.0
-pip install mpi4py==3.0.3
+pip install mpi4py==3.0.3 (optional and deprecated)
 pip install Shapely==1.7.1
 ```
 
