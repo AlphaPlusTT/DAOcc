@@ -147,7 +147,7 @@ def main() -> None:
             save_path = os.path.join(args.out_dir, "occ", f"{name}_gt.npy")
             np.save(save_path, occ)
         elif args.mode == "pred" and "occ_pred" in outputs[0]:
-            occ = outputs[0]["occ_pred"][0]
+            occ = outputs[0]["occ_pred"]
             save_path = os.path.join(args.out_dir, "occ", f"{name}.npy")
             mmcv.mkdir_or_exist(os.path.dirname(save_path))
             np.save(save_path, occ)
