@@ -24,16 +24,22 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 
 | Method | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | mIoU  |   Config   |   Model   |   Log   |
 |:------:|:-----------------:|:--------------------:|:----------------------:|:-----:|:----------:|:---------:|:-------:|
-| DAOcc  |         √         |         R50          |        256×704         | 54.33 | [config](configs/nuscenes/occ3d/daocc_occ3d_wo_mask_v2.yaml) | [model](https://drive.google.com/file/d/1JCrXzCkiiBROUHJuYyjefZ3qCaTrGPwv/view?usp=sharing) | [log](https://drive.google.com/file/d/1V1l9R7u_4TLDdZAMIIr6S4nzt-rkqo3i/view?usp=sharing) |
+| DAOcc  |         √         |         R50          |        256×704         | 54.33 | [config](configs/nuscenes/occ3d/daocc_occ3d_nus_w_mask.yaml) | [model](https://drive.google.com/file/d/1JCrXzCkiiBROUHJuYyjefZ3qCaTrGPwv/view?usp=sharing) | [log](https://drive.google.com/file/d/1V1l9R7u_4TLDdZAMIIr6S4nzt-rkqo3i/view?usp=sharing) |
 
 | Method | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | RayIoU |   Config   |     Model      |     Log      |
 |:------:|:-----------------:|:--------------------:|:----------------------:|:------:|:----------:|:--------------:|:------------:|
-| DAOcc  |         ×         |         R50          |        256×704         |  48.2  | [config](configs/nuscenes/occ3d/daocc_occ3d_wo_mask.yaml) | [model](https://drive.google.com/file/d/12naKlrec09QEF-7mGtAyW07au1WjYeKI/view?usp=sharing) | [log](https://drive.google.com/file/d/1XK3O4RLYxT_33kmVuWGu4Pt9Wj9X72AA/view?usp=sharing) |
+| DAOcc  |         ×         |         R50          |        256×704         |  48.4  | [config](configs/nuscenes/occ3d/daocc_occ3d_nus_wo_mask.yaml) | [model](https://drive.google.com/file/d/1uRT4sp8ll9rVEs_SCcdHrLmqQOa1OPx5/view?usp=sharing) | [log](https://drive.google.com/file/d/1FIJ1AU1Q9UuOJGxFz4tDZXxIlTB9RLE8/view?usp=sharing) |
 
-| Method <br/> (deprecated) | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | mIoU  |                          Config                          |     Model      |                                             Log                                              |
-|:-------------------------:|:-----------------:|:--------------------:|:----------------------:|:-----:|:--------------------------------------------------------:|:--------------:|:--------------------------------------------------------------------------------------------:|
-|           DAOcc           |         √         |         R50          |        256×704         | 53.82 | [config](configs/nuscenes/occ3d/daocc_occ3d_w_mask.yaml) | [model](https://drive.google.com/file/d/1CDQrv9gQOYnz1sjxhybZKtvwGvTuvIzG/view?usp=sharing) | [log](https://drive.google.com/file/d/1lnEJn1Akr71k1-OYHKKqMbrqk9T6J_qf/view?usp=drive_link) |
-|          DAOcc*           |         √         |         R50          |        256×704         | 54.19 |                            -                             | [model](https://drive.google.com/file/d/1_UvDO5ldL8102TmYIq_rX4yPMz-b9ib_/view?usp=sharing) |                                              -                                               |
+<details><summary><em>Deprecated results (archived)</em></summary>
+
+| Method <br/> | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | mIoU  |                          Config                          |     Model      |                                             Log                                              |
+|:------------:|:-----------------:|:--------------------:|:----------------------:|:-----:|:--------------------------------------------------------:|:--------------:|:--------------------------------------------------------------------------------------------:|
+|    DAOcc     |         √         |         R50          |        256×704         | 53.82 | [config](configs/nuscenes/occ3d/deprecated/daocc_occ3d_nus_w_mask.yaml) | [model](https://drive.google.com/file/d/1CDQrv9gQOYnz1sjxhybZKtvwGvTuvIzG/view?usp=sharing) | [log](https://drive.google.com/file/d/1lnEJn1Akr71k1-OYHKKqMbrqk9T6J_qf/view?usp=drive_link) |
+|    DAOcc*    |         √         |         R50          |        256×704         | 54.19 |                            -                             | [model](https://drive.google.com/file/d/1_UvDO5ldL8102TmYIq_rX4yPMz-b9ib_/view?usp=sharing) |                                              -                                               |
+
+| Method | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | RayIoU |   Config   |     Model      |     Log      |
+|:------:|:-----------------:|:--------------------:|:----------------------:|:------:|:----------:|:--------------:|:------------:|
+| DAOcc  |         ×         |         R50          |        256×704         |  48.2  | [config](configs/nuscenes/occ3d/deprecated/daocc_occ3d_nus_wo_mask.yaml) | [model](https://drive.google.com/file/d/12naKlrec09QEF-7mGtAyW07au1WjYeKI/view?usp=sharing) | [log](https://drive.google.com/file/d/1XK3O4RLYxT_33kmVuWGu4Pt9Wj9X72AA/view?usp=sharing) |
 
 ### 3D Semantic Occupancy Prediction on [SurroundOcc](https://github.com/weiyithu/SurroundOcc)
 
@@ -46,6 +52,8 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 | Method | Image <br/> Backbone | Image <br/> Resolution | IoU  | mIoU |   Config   |   Model   |   Log   |
 |:------:|:--------------------:|:----------------------:|:----:|:----:|:----------:|:---------:|:-------:|
 | DAOcc  |         R18          |        256×704         | 32.2 | 24.1 | [config](configs/nuscenes/openocc/daocc_openocc.yaml) | [model](https://drive.google.com/file/d/1CTepfmRQOSIk69DjG6U3gdEK0nGppKbM/view?usp=sharing) | [log](https://drive.google.com/file/d/1v92eqhO9-iXBSOqmEX8Gsdc9EaLGVMxC/view?usp=sharing) |
+
+</details>
 
 ### 3D Semantic Occupancy Prediction on [Occ3D-Waymo](https://github.com/JeffWang987/OpenOccupancy)
 

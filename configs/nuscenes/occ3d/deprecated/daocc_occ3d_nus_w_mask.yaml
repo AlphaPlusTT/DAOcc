@@ -60,7 +60,7 @@ model:
           mode: bilinear
           align_corners: false
       vtransform:
-        type: BEVTransformV2
+        type: BEVTransform
         top_type: lidar
         x: [-54.0, 54.0]
         y: [-54.0, 54.0]
@@ -167,7 +167,7 @@ model:
       in_dim: 128
       out_dim: 128
       Dz: 16
-      use_mask: false
+      use_mask: true
       num_classes: 18
       use_predicter: true
       class_balance: false
@@ -176,7 +176,6 @@ model:
         use_sigmoid: false
         ignore_index: 255
         loss_weight: 1.0
-        drop_free: true
       coordinate_transform:
         type: CrossCoordinateSample
         point_range: [-40., 40., -40., 40., 0., 0.]

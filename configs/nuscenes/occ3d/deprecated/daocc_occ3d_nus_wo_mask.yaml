@@ -60,7 +60,7 @@ model:
           mode: bilinear
           align_corners: false
       vtransform:
-        type: BEVTransformV2
+        type: BEVTransform
         top_type: lidar
         x: [-54.0, 54.0]
         y: [-54.0, 54.0]
