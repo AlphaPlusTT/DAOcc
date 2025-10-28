@@ -75,11 +75,12 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 ## Citation
 
 ```bibtex
-@article{yang2024daocc,
-  title={DAOcc: 3D Object Detection Assisted Multi-Sensor Fusion for 3D Occupancy Prediction},
-  author={Yang, Zhen and Dong, Yanpeng and Wang, Heng},
-  journal={arXiv preprint arXiv:2409.19972},
-  year={2024}
+@article{yang2025daocc,
+  title={Daocc: 3d object detection assisted multi-sensor fusion for 3d occupancy prediction},
+  author={Yang, Zhen and Dong, Yanpeng and Wang, Jiayu and Wang, Heng and Ma, Lichao and Cui, Zijian and Liu, Qi and Pei, Haoran and Zhang, Kexin and Zhang, Chao},
+  journal={IEEE Transactions on Circuits and Systems for Video Technology},
+  year={2025},
+  publisher={IEEE}
 }
 ```
 
