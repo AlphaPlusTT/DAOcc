@@ -21,7 +21,7 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 
 ## Experimental results
 
-### 3D Semantic Occupancy Prediction on [Occ3D-nuScenes](https://github.com/Tsinghua-MARS-Lab/Occ3D)
+### 3D Semantic Occupancy Prediction on [Occ3D-nuScenes](https://github.com/Tsinghua-MARS-Lab/Occ3D?tab=readme-ov-file#occ3d-nuScenes)
 
 | Method | Camera <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | mIoU  |   Config   |   Model   |   Log   |
 |:------:|:-----------------:|:--------------------:|:----------------------:|:-----:|:----------:|:---------:|:-------:|
@@ -56,7 +56,7 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 
 </details>
 
-### 3D Semantic Occupancy Prediction on [Occ3D-Waymo](https://github.com/JeffWang987/OpenOccupancy)
+### 3D Semantic Occupancy Prediction on [Occ3D-Waymo](https://github.com/Tsinghua-MARS-Lab/Occ3D?tab=readme-ov-file#occ3d-waymo)
 
 | Method | Camera <br/> Mask | Infov <br/> Mask | Image <br/> Backbone | Image <br/> Resolution | mIoU  |                           Config                            | Model |   Log   |
 |:------:|:-----------------:|:----------------:|:--------------------:|:----------------------:|:-----:|:-----------------------------------------------------------:|:-----:|:-------:|
@@ -71,6 +71,14 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 - [Prepare Dataset](docs/data.md)
 - [Train and Eval](docs/run.md)
 - [Visualization](docs/vis.md)
+
+## TensorRT Deployment
+We provide deployment details of DAOcc, including converting the Torch model to ONNX format and building a TensorRT (TRT) engine from the ONNX model. For specific details, please refer to [CUDA_DAOcc](https://github.com/AlphaPlusTT/CUDA-DAOcc).
+
+| Model | Precision | Hardware | mIoU  | FPS  |
+|-------|-----------|:--------:|-------|------|
+| DAOcc | FP16+INT8 |   Orin   | 53.70 | 20.0 |
+
 
 ## Citation
 
