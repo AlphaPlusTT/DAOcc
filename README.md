@@ -75,9 +75,9 @@ This is the official implementation of DAOcc. DAOcc is a novel multi-modal occup
 ## TensorRT Deployment
 We provide deployment details of DAOcc, including converting the Torch model to ONNX format and building a TensorRT (TRT) engine from the ONNX model. For specific details, please refer to [CUDA_DAOcc](https://github.com/AlphaPlusTT/CUDA-DAOcc).
 
-| Model | Precision | Hardware | mIoU  | FPS  |
-|-------|-----------|:--------:|-------|------|
-| DAOcc | FP16+INT8 |   Orin   | 53.70 | 20.0 |
+| Model | Precision |         Hardware         | mIoU  | FPS  |
+|-------|-----------|:------------------------:|-------|------|
+| DAOcc | FP16+INT8 |     AGX Orin (64GB)      | 53.70 | 20.0 |
 
 
 ## Citation
